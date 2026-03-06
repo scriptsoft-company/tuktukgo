@@ -15,6 +15,14 @@ db.version(2).stores({
     settings: 'id'
 });
 
+db.version(3).stores({
+    trips: 'id, date, archived',
+    expenses: 'id, date, archived',
+    dayEndLogs: 'id, date',
+    fuelLogs: 'id, date',
+    settings: 'id'
+});
+
 // --- 1.1 Supabase Configuration ---
 let supabaseClient;
 const SUPABASE_URL = 'https://lurloistqrpikhzypsif.supabase.co'; // Fixed URL
@@ -654,6 +662,7 @@ async function runDayEnd() {
     for (let e of state.expenses) { if (new Date(e.date).toLocaleDateString() === today) e.archived = true; }
 
     const newLog = {
+        id: Date.now(),
         date: today, trips: activeTodayTrips.length, income: totalIncome, expenses: totalExpenses, profit: profit, closedAt: new Date().toISOString()
     };
     state.dayEndLogs.unshift(newLog);
@@ -777,6 +786,10 @@ async function syncAllToCloud(silent = false) {
                     payload.closedat = payload.closedAt;
                     delete payload.closedAt;
                 }
+                // Ensure id exists for older logs
+                if (!payload.id) {
+                    payload.id = new Date(payload.closedat || payload.date || Date.now()).getTime() || Date.now();
+                }
                 return payload;
             });
             const { error: dErr } = await supabaseClient.from('day_end_logs').upsert(mappedLogs);
@@ -830,6 +843,11 @@ async function sendDayEndToCloud(log) {
         if (payload.closedAt) {
             payload.closedat = payload.closedAt;
             delete payload.closedAt;
+        }
+
+        // Ensure id exists for older logs that didn't have an id initially
+        if (!payload.id) {
+            payload.id = new Date(payload.closedat || payload.date || Date.now()).getTime() || Date.now();
         }
 
         const { error } = await supabaseClient
