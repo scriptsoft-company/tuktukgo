@@ -717,6 +717,7 @@ async function sendToCloud(trip) {
         console.log("✅ Trip synced to Supabase!");
     } catch (error) {
         console.error("Supabase Sync Error (Trip):", error);
+        alert("Trip Sync Error: " + (error.message || "Unknown Error"));
     }
 }
 
