@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tuktuk Hire Manager</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#3b82f6">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="TukTuk Go">
+    <meta name="mobile-web-app-capable" content="yes">
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/svg+xml" href="logo.svg">
+    <link rel="apple-touch-icon" href="logo.svg">
+    <link rel="apple-touch-icon" sizes="180x180" href="logo.svg">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/lucide@0.400.0/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://unpkg.com/dexie@latest/dist/dexie.js"></script>
+
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body>
+    <!-- Splash Screen inspired by 'Share Go' style -->
+    <div id="splash-screen" class="splash-screen">
+        <div class="splash-background">
+            <div class="bg-line"></div>
+        </div>
+        <div class="splash-content">
+            <div class="logo-area">
+                <img src="logo.svg" alt="TukTuk Go" class="splash-logo-img">
+            </div>
+            <div class="splash-text">
+                <h1>TukTuk Go</h1>
+                <p>Hire now, move fast</p>
+            </div>
+            <button id="splash-btn" class="splash-btn">
+                <i data-lucide="arrow-right"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Auth Screen -->
+    <div id="auth-screen" class="auth-screen" style="display: none;">
+        <div class="auth-content">
+            <div class="auth-header">
+                <img src="logo.svg" alt="TukTuk Go" class="auth-logo">
+                <h1 id="auth-title">Welcome Back</h1>
+                <p id="auth-subtitle">Login to sync your data</p>
+            </div>
+
+            <div id="login-form-container">
+                <form id="login-form">
+                    <div class="input-group">
+                        <label>Email / Phone</label>
+                        <input type="text" id="login-id" placeholder="Enter your ID" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Password</label>
+                        <div class="pass-wrapper">
+                            <input type="password" id="login-pass" placeholder="••••••••" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary auth-btn">Login</button>
+                    <p class="auth-switch">New to TukTuk Go? <a href="#" id="show-signup">Register Now</a></p>
+                </form>
+            </div>
+
+            <div id="signup-form-container" style="display: none;">
+                <form id="signup-form">
+                    <div class="input-group">
+                        <label>Full Name</label>
+                        <input type="text" id="signup-name" placeholder="John Doe" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Email / Phone</label>
+                        <input type="text" id="signup-id" placeholder="Enter your ID" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Password</label>
+                        <div class="pass-wrapper">
+                            <input type="password" id="signup-pass" placeholder="••••••••" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary auth-btn">Register</button>
+                    <p class="auth-switch">Already have an account? <a href="#" id="show-login">Login here</a></p>
+                </form>
+            </div>
+
+            <!-- Offline Bypass -->
+            <div style="margin-top: 20px; text-align: center; border-top: 1px solid var(--border); padding-top: 20px;">
+                <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 10px;">Cloud සම්බන්ධයක් නොමැතිව
+                    පාවිච්චි කිරීමට (Offline)</p>
+                <button id="skip-auth" class="auth-btn"
+                    style="background: var(--bg-elevated); color: white; border: 1px dashed var(--border); width: 100%; border-radius: 12px; padding: 12px; font-weight: 600; cursor: pointer;">Continue
+                    Offline</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="app" style="display: none;">
+        <!-- Header -->
+        <header>
+            <div class="header-content">
+                <div class="user-profile">
+                    <div id="user-avatar" class="avatar">🛺</div>
+                    <div class="welcome">
+                        <span id="welcome-text">Good Morning,</span>
+                        <h2 id="driver-name">Captain</h2>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <button id="install-btn" class="btn-primary"
+                        style="display: none; padding: 5px 10px; font-size: 12px; margin-right: 10px;">
+                        <i data-lucide="download"></i> Install
+                    </button>
+                    <button id="notification-btn" class="icon-btn"><i data-lucide="bell"></i></button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content (Containers for different tabs) -->
+        <main id="main-content">
+            <!-- Dashboard Tab -->
+            <section id="dashboard" class="page active">
+                <div class="stats-overview">
+                    <div class="stat-card primary">
+                        <span class="label">Today's Earnings</span>
+                        <h1 id="today-income">Rs. 0.00</h1>
+                        <div class="trend up"><i data-lucide="trending-up"></i> +12%</div>
+                    </div>
+                    <div class="stat-grid">
+                        <div class="stat-card">
+                            <span class="label">Trips</span>
+                            <h3 id="today-trips">0</h3>
+                        </div>
+                        <div class="stat-card">
+                            <span class="label">Expenses</span>
+                            <h3 id="today-expenses">Rs. 0</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="action-section">
+                    <button id="add-trip-btn" class="main-fab secondary-fab">
+                        <i data-lucide="plus-circle"></i> Add Manual Entry
+                    </button>
+                </div>
+
+                <div class="recent-trips">
+                    <div class="section-header">
+                        <h3>Recent Hires</h3>
+                        <a href="#" id="view-all-trips">View All</a>
+                    </div>
+                    <div id="recent-trips-list" class="trip-list">
+                        <!-- Trips will be injected here -->
+                        <div class="empty-state">
+                            <i data-lucide="map-pin"></i>
+                            <p>No hires yet today. Start your first journey!</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- History Tab -->
+            <section id="history" class="page">
+                <div class="section-header">
+                    <h2>Hire History</h2>
+                    <div class="filter-bar">
+                        <button class="filter-chip active">All</button>
+                        <button class="filter-chip">Today</button>
+                        <button class="filter-chip">Week</button>
+                    </div>
+                </div>
+                <div id="full-history-list" class="trip-list scrollable">
+                    <!-- Full history injected here -->
+                </div>
+            </section>
+
+            <!-- Stats Tab -->
+            <section id="stats" class="page">
+                <div class="section-header">
+                    <h2>Analytics</h2>
+                </div>
+                <div class="chart-container">
+                    <canvas id="incomeChart"></canvas>
+                </div>
+                <div class="summary-cards">
+                    <div class="summary-card">
+                        <span>Monthly Profit</span>
+                        <h4 id="weekly-profit">Rs. 0</h4>
+                    </div>
+                    <div class="summary-card">
+                        <span>Avg. Fare</span>
+                        <h4 id="avg-fare">Rs. 0</h4>
+                    </div>
+                </div>
+
+                <div class="expense-section" style="margin-top: 25px;">
+                    <div class="section-header">
+                        <h3>Expenses</h3>
+                        <button id="add-expense-btn" class="btn-sm"><i data-lucide="plus"></i> Add</button>
+                    </div>
+                    <div id="expense-list" class="expense-list">
+                        <!-- Expenses injected here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Vehicle Tab -->
+            <section id="vehicle" class="page">
+                <div class="section-header">
+                    <h2>Vehicle Management</h2>
+                </div>
+
+                <!-- Service Progress -->
+                <div class="stat-card">
+                    <span class="label">Next Service in</span>
+                    <h3 id="service-countdown">2500 km</h3>
+                    <div class="progress-bar-bg"
+                        style="height: 10px; background: rgba(255,255,255,0.1); border-radius: 5px; margin-top: 10px; overflow: hidden;">
+                        <div id="service-progress" style="height: 100%; background: var(--primary); width: 0%;"></div>
+                    </div>
+                </div>
+
+                <div class="stat-grid" style="margin-top: 15px;">
+                    <div class="stat-card">
+                        <span class="label">Odometer</span>
+                        <h3 id="odometer-val">0 km</h3>
+                    </div>
+                    <div class="stat-card">
+                        <span class="label">Fuel Efficiency</span>
+                        <h3 id="fuel-efficiency">0.0 <small>km/L</small></h3>
+                    </div>
+                </div>
+
+                <div class="action-section" style="margin-top: 20px;">
+                    <button id="add-fuel-btn" class="main-fab"
+                        style="background: var(--accent-green); box-shadow: 0 10px 25px rgba(34, 197, 94, 0.4);">
+                        <i data-lucide="fuel"></i> Add Fuel
+                    </button>
+                    <button id="service-done-btn" class="main-fab secondary-fab" style="margin-top: 10px;">
+                        <i data-lucide="wrench"></i> Service Done
+                    </button>
+                </div>
+
+                <div class="recent-trips">
+                    <div class="section-header">
+                        <h3>Fuel History</h3>
+                    </div>
+                    <div id="fuel-list" class="trip-list">
+                        <!-- Fuel logs injected here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings Tab -->
+            <section id="settings" class="page">
+                <div class="section-header">
+                    <h2>Configuration</h2>
+                </div>
+
+                <div class="settings-group">
+                    <h3 class="group-title">Vehicle & Pricing</h3>
+                    <div class="settings-card">
+                        <div class="s-info">
+                            <h4>Service Mode</h4>
+                            <p>Select your vehicle type</p>
+                        </div>
+                        <div class="mode-selector">
+                            <button id="mode-tuk" class="mode-btn active">🛺</button>
+                            <button id="mode-bike" class="mode-btn">🏍️</button>
+                        </div>
+                    </div>
+
+                    <div class="settings-card">
+                        <div class="s-info">
+                            <h4>Pricing Structure</h4>
+                            <p>Currency in Sri Lankan Rupees</p>
+                            <div class="pricing-grid">
+                                <div>
+                                    <label>Base (1st Km)</label>
+                                    <input type="number" id="base-price" placeholder="100">
+                                </div>
+                                <div>
+                                    <label>Subsequent Km</label>
+                                    <input type="number" id="extra-price" placeholder="90">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-card">
+                        <div class="s-info">
+                            <h4>Odometer Update</h4>
+                            <p>Current total distance: <span id="current-odo-display">0</span> km</p>
+                            <div class="odo-update-row" style="display: flex; gap: 10px; margin-top: 10px;">
+                                <input type="number" id="odo-input" placeholder="Enter new value"
+                                    style="flex: 1; padding: 12px; border-radius: 12px; background: #1a1a1a; border: 1px solid var(--border); color: white;">
+                                <button id="update-odo-btn" class="btn-sm"
+                                    style="padding: 0 20px; background: var(--primary); border: none; border-radius: 12px; font-weight: 700; color: #000;">Update</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-group">
+                    <h3 class="group-title">Preferences</h3>
+                    <div class="settings-card">
+                        <div class="s-info">
+                            <h4>Voice Assistant</h4>
+                            <p>Auto-announce fare after trip</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="voice-toggle" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="settings-card">
+                        <div class="s-info">
+                            <h4>Announcement Language</h4>
+                        </div>
+                        <select id="voice-lang">
+                            <option value="si">Sinhala (සිංහල)</option>
+                            <option value="en">English (International)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="settings-group">
+                    <h3 class="group-title">Data & Security</h3>
+                    <div class="settings-card">
+                        <div class="s-info">
+                            <h4>Cloud Status</h4>
+                            <p id="cloud-status-text">Connected to Google Firebase</p>
+                        </div>
+                        <div class="indicator online"></div>
+                    </div>
+
+                    <div class="settings-card">
+                        <div class="s-info">
+                            <h4>Google Sheet Hook</h4>
+                            <input type="text" id="gsheet-url" placeholder="Paste URL here"
+                                style="width: 100%; margin-top: 10px; padding: 12px; border-radius: 12px; background: #1a1a1a; border: 1px solid var(--border); color: white;">
+                        </div>
+                    </div>
+
+                    <div class="settings-card">
+                        <div class="s-info">
+                            <h4>Cloud Storage</h4>
+                            <p>Sync all local data to Firestore</p>
+                        </div>
+                        <button id="sync-sql-btn" class="btn-sm"
+                            style="padding: 10px 20px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 12px; color: white;">Cloud
+                            Sync</button>
+                    </div>
+
+                    <div class="settings-card danger-zone" style="border-left: 4px solid var(--error);">
+                        <div class="s-info">
+                            <h4>Finalize Day</h4>
+                            <p>Archive and clear current records</p>
+                        </div>
+                        <button id="day-end-btn" class="btn-day-end">Day End</button>
+                    </div>
+
+                    <div class="settings-card logout-card" style="border-left: 4px solid var(--error);">
+                        <div class="s-info">
+                            <h4>Account Session</h4>
+                            <p>Logout from your account</p>
+                        </div>
+                        <button id="logout-btn" class="btn-sm"
+                            style="background: var(--error); color: white; border:none; padding: 10px 20px; border-radius: 12px; font-weight:700;">Logout</button>
+                    </div>
+                </div>
+
+                <div class="settings-group" style="margin-top: 40px;">
+                    <h3 class="group-title">Archive Logs</h3>
+                    <div id="logs-container"></div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Navigation -->
+        <nav class="bottom-nav">
+            <button class="nav-item active" data-target="dashboard">
+                <i data-lucide="home"></i>
+                <span>Home</span>
+            </button>
+            <button class="nav-item" data-target="history">
+                <i data-lucide="history"></i>
+                <span>History</span>
+            </button>
+            <button id="start-meter-btn" class="nav-go-btn">
+                <span>GO</span>
+            </button>
+            <button class="nav-item" data-target="vehicle">
+                <i data-lucide="truck"></i>
+                <span>Vehicle</span>
+            </button>
+            <button class="nav-item" data-target="settings">
+                <i data-lucide="settings"></i>
+                <span>Settings</span>
+            </button>
+        </nav>
+
+        <!-- Modals -->
+        <div id="trip-modal" class="modal">
+            <div class="modal-content">
+                <div class="drag-handle"></div>
+                <h3>New Hire Details</h3>
+                <form id="trip-form">
+                    <div class="input-group">
+                        <label>Pickup Location</label>
+                        <input type="text" id="pickup" placeholder="e.g. Maharagama" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Destination</label>
+                        <input type="text" id="destination" placeholder="e.g. Kottawa" required>
+                    </div>
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label>Fare (Rs.)</label>
+                            <input type="number" id="fare" placeholder="0.00" required>
+                        </div>
+                        <div class="input-group">
+                            <label>Distance (km)</label>
+                            <input type="number" id="distance" step="0.1" placeholder="0.0">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Payment Method</label>
+                        <div class="payment-selector">
+                            <label class="radio-card">
+                                <input type="radio" name="payment" value="cash" checked>
+                                <span>Cash</span>
+                            </label>
+                            <label class="radio-card">
+                                <input type="radio" name="payment" value="card">
+                                <span>Card/Online</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn-secondary close-modal">Cancel</button>
+                        <button type="submit" class="btn-primary">Save Hire</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Expense Modal -->
+        <div id="expense-modal" class="modal">
+            <div class="modal-content">
+                <div class="drag-handle"></div>
+                <h3>Record Expense</h3>
+                <form id="expense-form">
+                    <div class="input-group">
+                        <label>Expense Type</label>
+                        <select id="expense-type" class="custom-select">
+                            <option value="Fuel">Fuel</option>
+                            <option value="Repair">Repair / Service</option>
+                            <option value="Lease">Lease Payment</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Amount (Rs.)</label>
+                        <input type="number" id="expense-amount" placeholder="0.00" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Note (Optional)</label>
+                        <input type="text" id="expense-note" placeholder="e.g. full tank">
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn-secondary close-expense-modal">Cancel</button>
+                        <button type="submit" class="btn-primary">Save Expense</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Meter Screen (Overlay) -->
+        <div id="meter-screen" class="meter-overlay">
+            <div class="meter-content-full">
+                <div class="meter-header">
+                    <div class="gps-status"><span class="dot"></span> GPS Live</div>
+                    <button id="close-meter" class="icon-btn"><i data-lucide="x"></i></button>
+                </div>
+                <div class="meter-main">
+                    <div id="meter-map" class="meter-map-container"></div>
+                    <div class="meter-display">
+                        <div class="speed-container">
+                            <span id="live-speed">0</span>
+                            <small>km/h</small>
+                        </div>
+                        <span class="currency">Rs.</span>
+                        <h1 id="live-fare">0.00</h1>
+                        <p id="meter-status-text">Trip in progress...</p>
+                    </div>
+                    <div class="meter-stats">
+                        <div class="m-stat">
+                            <span class="label">Distance</span>
+                            <h2 id="live-distance">0.0 <small>km</small></h2>
+                        </div>
+                        <div class="m-stat">
+                            <span class="label">Duration</span>
+                            <h2 id="live-duration">00:00</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="meter-actions-row">
+                    <!-- Premium 'Slide to End' Slider -->
+                    <div class="slider-to-end-container">
+                        <div id="slider-track" class="slider-track">
+                            <div id="slider-thumb" class="slider-thumb">
+                                <i data-lucide="arrow-right"></i>
+                            </div>
+                            <span class="slider-text">SLIDE TO END TRIP</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Day End Summary Modal -->
+        <div id="day-end-modal" class="modal">
+            <div class="modal-content">
+                <div class="drag-handle"></div>
+                <div class="success-icon"><i data-lucide="check-circle"></i></div>
+                <h3>Day End Summary</h3>
+                <div class="day-summary-details">
+                    <div class="summary-row"><span>Total Hires:</span> <strong id="sum-hires">0</strong></div>
+                    <div class="summary-row"><span>Gross Income:</span> <strong id="sum-income">Rs. 0</strong></div>
+                    <div class="summary-row"><span>Total Expenses:</span> <strong id="sum-expenses">Rs. 0</strong></div>
+                    <hr>
+                    <div class="summary-row total"><span>Net Profit:</span> <strong id="sum-profit">Rs. 0</strong></div>
+                </div>
+                <div class="modal-actions">
+                    <button id="whatsapp-btn" class="btn-secondary"
+                        style="background: var(--accent-green); color: white;"><i data-lucide="share-2"></i> WhatsApp
+                        Summary</button>
+                    <button class="btn-primary close-day-modal">Done for Today</button>
+                </div>
+            </div>
+        </div>
+        <!-- Fuel Modal -->
+        <div id="fuel-modal" class="modal">
+            <div class="modal-content">
+                <div class="drag-handle"></div>
+                <h3>Record Fuel</h3>
+                <form id="fuel-form">
+                    <div class="input-group">
+                        <label>Fuel Amount (Liters)</label>
+                        <input type="number" id="fuel-liters" step="0.01" placeholder="0.00" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Cost (Rs.)</label>
+                        <input type="number" id="fuel-cost" placeholder="0.00" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Current Odometer (km)</label>
+                        <input type="number" id="fuel-odo" placeholder="0" required>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn-secondary close-fuel-modal">Cancel</button>
+                        <button type="submit" class="btn-primary">Save Fuel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,74 @@
+# Gmail to Google Sheets Automation
+
+This script will automatically check your Gmail for new messages and add their details to your Google Sheet.
+
+## 🛠️ Setup Instructions (පියවරෙන් පියවර උපදෙස්)
+
+1. **Open Google Sheets**: Create a new Google Sheet or open an existing one.
+2. **Open Apps Script**: Go to **Extensions** > **Apps Script**.
+3. **Copy-Paste**: Delete any code there and paste the code below.
+4. **Save**: Click the disk icon (Save) and name it "GmailSync".
+5. **Run & Authorize**: Click the **Run** button. It will ask for permissions. Click "Allow" (you might need to click "Advanced" > "Go to GmailSync (unsafe)" as it is your own script).
+6. **Set Trigger (Auto-Update)**: 
+   - Click the clock icon (Triggers) on the left sidebar.
+   - Click **+ Add Trigger**.
+   - Choose `syncGmailToSheet`, select **Time-driven**, and set it to **Minutes timer** (e.g., every 15 minutes).
+
+---
+
+## 💻 The Script
+
+```javascript
+/**
+ * Automatically syncs unread Gmail messages to the Google Sheet.
+ */
+function syncGmailToSheet() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  
+  // 1. Search for unread emails (you can change the search query)
+  // Example: "is:unread label:hires" or just "is:unread"
+  var threads = GmailApp.search('is:unread'); 
+  
+  if (threads.length == 0) {
+    Logger.log("No new unread messages found.");
+    return;
+  }
+  
+  // 2. Add header if sheet is empty
+  if (sheet.getLastRow() == 0) {
+    sheet.appendRow(["Date", "From", "Subject", "Snippet", "Link"]);
+    sheet.getRange(1, 1, 1, 5).setFontWeight("bold").setBackground("#f3f3f3");
+  }
+
+  // 3. Process messages
+  for (var i = 0; i < threads.length; i++) {
+    var messages = threads[i].getMessages();
+    for (var j = 0; j < messages.length; j++) {
+      var msg = messages[j];
+      
+      if (msg.isUnread()) {
+        var date = msg.getDate();
+        var from = msg.getFrom();
+        var subject = msg.getSubject();
+        var snippet = msg.getPlainBody().substring(0, 200) + "..."; // First 200 chars
+        var link = "https://mail.google.com/mail/u/0/#inbox/" + msg.getId();
+        
+        // Append to sheet
+        sheet.appendRow([date, from, subject, snippet, link]);
+        
+        // Mark as read so it doesn't get added again
+        msg.markRead();
+      }
+    }
+  }
+  
+  Logger.log("Sync completed successfully!");
+}
+```
+
+---
+
+## 💡 How it works (මෙය ක්‍රියා කරන ආකාරය)
+- **Automatic**: The "Trigger" makes it run automatically without you opening the computer.
+- **Prevents Duplicates**: It only picks up **Unread** emails and marks them as **Read** after adding to the sheet.
+- **Customizable**: If you only want emails from a specific sender (e.g. Uber or PickMe), change `is:unread` to `is:unread from:noreply@pickme.lk`.
