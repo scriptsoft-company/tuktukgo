@@ -32,12 +32,19 @@ try {
     alert("Supabase Error: " + e.message);
 }
 
+let savedUser = JSON.parse(localStorage.getItem('tuk_user')) || null;
+if (savedUser && savedUser.id && !savedUser.id.includes('-')) {
+    // Old Firebase user detected, clear it
+    savedUser = null;
+    localStorage.removeItem('tuk_user');
+}
+
 let state = {
     trips: [],
     expenses: [],
     dayEndLogs: [],
     fuelLogs: [],
-    user: JSON.parse(localStorage.getItem('tuk_user')) || null,
+    user: savedUser,
     gsheetUrl: localStorage.getItem('gsheet_url') || '',
     settings: {
         odometer: 0,
